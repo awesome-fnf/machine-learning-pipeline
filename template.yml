@@ -1,0 +1,35 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: 'Aliyun::Serverless-2018-04-03'
+
+Resources:
+  fnfDemoMLPipelineService:
+    Type: 'Aliyun::Serverless::Service'
+    Properties:
+      VpcConfig:
+        VpcId: 'vpc-bp1ak1f06s8iuwfkxod5m'  # Replace with your k8s vpc ID, e.g. vpc-bp1234567890abc
+        VSwitchIds:
+          - 'vsw-bp1xrn7xd6umwhe5f5dbg'  # Replace with your k8s vsw ID, e.g. vsw-bp123456790abc
+        SecurityGroupId: 'sg-bp11ug4e46qtw1uc8kgd' # Replace with your k8s security group ID, e.g. sg-bp1234567890abc
+      Description: 'FC service to access K8s clusters'
+      Policies:
+        - Version: '1' # Policy Document
+          Statement:
+            - Effect: Allow
+              Action:
+                - cs:Get*  # Allow FC function to access ACK DescribeClusterUserKubeconfig action
+              Resource: 'acs:cs:*:*:cluster/ceda01c1dd9ee4fc4a17855e6f6870ef6'  # Replace with your k8s cluster ID, e.g. abcdefg1234567
+    k8sActions:
+      Type: 'Aliyun::Serverless::Function'
+      Properties:
+        Handler: index.handler
+        CodeUri: ./functions/main/code.zip
+        Description: 'FC function for K8s CRUD actions'
+        Runtime: custom
+        Timeout: 60
+  fnfDemoMLPipelineFlow:
+    Type: 'Aliyun::Serverless::Flow'
+    Properties:
+      Description: FnF demo of machine learning pipeline
+      DefinitionUri: flows/machine-learning-pipeline.flow.yml
+      Policies:
+        - AliyunFCInvocationAccess

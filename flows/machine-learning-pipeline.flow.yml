@@ -1,0 +1,187 @@
+version: v1beta1
+type: flow
+steps:
+  - type: task
+    name: StartTraining
+    resourceArn: acs:fc:::services/fnfDemoMLPipelineService/functions/k8sActions
+    inputMappings:
+      - target: action
+        source: "train-model"
+      - target: k8sClusterID
+        source: $input.k8sClusterID
+      - target: trainJobNamePrefix
+        source: $input.trainJobNamePrefix
+      - target: demoVersion
+        source: $input.demoVersion
+      - target: trainImage
+        source: $input.trainImage
+      - target: ossBucket
+        source: $input.ossBucket
+    catch:
+      - errors:
+          - FnF.ALL
+        goto: NotifyFailed
+  - type: wait
+    name: Wait10s
+    duration: 10
+  - type: task
+    name: GetTrainStatus
+    resourceArn: acs:fc:::services/fnfDemoMLPipelineService/functions/k8sActions
+    inputMappings:
+      - target: action
+        source: "get-train-status"
+      - target: k8sClusterID
+        source: $input.k8sClusterID
+      - target: trainJobNamePrefix
+        source: $input.trainJobNamePrefix
+      - target: demoVersion
+        source: $input.demoVersion
+    catch:
+      - errors:
+          - FnF.ALL
+        goto: NotifyFailed
+  - type: choice
+    name: IsTrainComplete
+    inputMappings:
+      - target: status
+        source: $local.status
+    choices:
+      - condition: $.status == "succeeded"
+        goto: StartDeployment
+      - condition: $.status == "failed"
+        goto: NotifyFailed
+      - condition: $.status == "running"
+        goto: Wait10s
+  - type: task
+    name: StartDeployment
+    resourceArn: acs:fc:::services/fnfDemoMLPipelineService/functions/k8sActions
+    inputMappings:
+      - target: action
+        source: "deploy-model"
+      - target: k8sClusterID
+        source: $input.k8sClusterID
+      - target: deploymentNamePrefix
+        source: $input.deploymentNamePrefix
+      - target: demoVersion
+        source: $input.demoVersion
+      - target: servingImage
+        source: $input.servingImage
+      - target: ossBucket
+        source: $input.ossBucket
+    catch:
+      - errors:
+          - FnF.ALL
+        goto: NotifyFailed
+  - type: wait
+    name: Wait5s
+    duration: 5
+  - type: task
+    name: GetDeploymentStatus
+    resourceArn: acs:fc:::services/fnfDemoMLPipelineService/functions/k8sActions
+    inputMappings:
+      - target: action
+        source: "get-deployment-status"
+      - target: k8sClusterID
+        source: $input.k8sClusterID
+      - target: deploymentNamePrefix
+        source: $input.deploymentNamePrefix
+      - target: demoVersion
+        source: $input.demoVersion
+    catch:
+      - errors:
+          - FnF.ALL
+        goto: NotifyFailed
+  - type: choice
+    name: IsDeploymentComplete
+    inputMappings:
+      - target: status
+        source: $local.deploymentStatus
+    choices:
+      - condition: $.status == "succeeded"
+        goto: ExposeService
+      - condition: $.status == "running"
+        goto: Wait5s
+  - type: task
+    name: ExposeService
+    resourceArn: acs:fc:::services/fnfDemoMLPipelineService/functions/k8sActions
+    inputMappings:
+      - target: action
+        source: "expose-service"
+      - target: k8sClusterID
+        source: $input.k8sClusterID
+      - target: deploymentNamePrefix
+        source: $input.deploymentNamePrefix
+      - target: serviceNamePrefix
+        source: $input.serviceNamePrefix
+      - target: demoVersion
+        source: $input.demoVersion
+      - target: servingImage
+        source: $input.servingImage
+      - target: ossBucket
+        source: $input.ossBucket
+    catch:
+      - errors:
+          - FnF.ALL
+        goto: NotifyFailed
+  - type: wait
+    name: Wait5sService
+    duration: 5
+  - type: task
+    name: GetServicetStatus
+    resourceArn: acs:fc:::services/fnfDemoMLPipelineService/functions/k8sActions
+    inputMappings:
+      - target: action
+        source: "get-service-status"
+      - target: k8sClusterID
+        source: $input.k8sClusterID
+      - target: deploymentNamePrefix
+        source: $input.deploymentNamePrefix
+      - target: serviceNamePrefix
+        source: $input.serviceNamePrefix
+      - target: demoVersion
+        source: $input.demoVersion
+    catch:
+      - errors:
+          - FnF.ALL
+        goto: NotifyFailed
+  - type: choice
+    name: IsServiceComplete
+    inputMappings:
+      - target: status
+        source: $local.serviceStatus
+    choices:
+      - condition: $.status == "succeeded"
+        goto: RunTestCasesAndWaitForManualDecision
+      - condition: $.status == "not-ready"
+        goto: Wait5sService
+  - type: task
+    name: RunTestCasesAndWaitForManualDecision
+    resourceArn: acs:fc:::services/fnfDemoMLPipelineService/functions/k8sActions
+    pattern: waitForCallback
+    inputMappings:
+      - target: action
+        source: "run-test-cases"
+      - target: task_token
+        source: $context.task.token
+      - target: servingEndpoint
+        source: $local.servingEndpoint
+      - target: k8sClusterID
+        source: $input.k8sClusterID
+    catch:
+      - errors:
+          - FnF.ALL
+        goto: NotifyFailed
+  - type: choice
+    name: IsModelApproved
+    inputMappings:
+      - target: decision
+        source: $local.decision
+    choices:
+      - condition: $.decision == "approved"
+        goto: NotifySucceess
+    default:
+      goto: NotifyFailed
+  - type: succeed
+    name: NotifySucceess
+  - type: fail
+    name: NotifyFailed
