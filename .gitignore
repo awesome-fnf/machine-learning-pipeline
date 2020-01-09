@@ -1,0 +1,7 @@
+.fun/
+.idea/*
+.idea/
+.idea/fc-golang-k8s.iml
+functions/main/bin
+functions/main/bin/*
+functions/main/code.zip

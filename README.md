@@ -25,7 +25,7 @@ REGION=cn-hangzhou ACCOUNT_ID={your-main-account-id} VERSION=v1 NAMESPACE={your-
 
 在[函数工作流控制台](https://fnf.console.aliyun.com/fnf/cn-hangzhou/flows/item/fnfDemoMLPipelineFlow) 可以看到下面流程：
 
-![fnf-secret](./resources/ml-pipeline-flow.svg)
+![fnf-secret](./resources/ml-pipeline-flow.png)
 
 ## 第三步：开始流程
 在[函数工作流控制台](https://fnf.console.aliyun.com/fnf/cn-hangzhou/flows/item/fnfDemoMLPipelineFlow) 开始流程，使用下面的 json 作为 input, 替换：
